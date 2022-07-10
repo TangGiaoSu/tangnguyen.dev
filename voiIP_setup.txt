@@ -1,0 +1,127 @@
+Ubuntu server 20.04 LTS
+
+sudo passwd # Enter password to set for root user
+
+sudo apt update -y
+sudo apt upgrade -y
+
+sudo apt install g++ -y
+sudo apt install make -y
+sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+sudo reboot
+
+1. Install Asterisk 18 PBX dependencies
+
+sudo apt install git curl wget libnewt-dev libssl-dev libncurses5-dev subversion libsqlite3-dev build-essential libjansson-dev libxml2-dev uuid-dev -y
+
+# if error -> E: Package 'subversion' has no installation candidate
+	sudo add-apt-repository universe
+	sudo apt update -y
+	sudo apt install subversion -y
+# Then you try again
+
+2. Download Asterisk 18 source and install dependencies
+
+su -m # Enter password root user
+cd /usr/src/
+curl -O http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-18-current.tar.gz
+tar xvf asterisk-18-current.tar.gz
+cd asterisk-18*/
+contrib/scripts/get_mp3_source.sh
+contrib/scripts/install_prereq install
+
+3. Build and Install Asterisk from source
+
+./configure
+make menuselect
+
+# On Add-ons select chan_ooh323 and format_mp3  as shown below
+# You can select all if you don't a knowledge anythings.  =))
+
+make
+make install
+make samples
+make config
+ldconfig
+
+cd
+groupadd asterisk
+useradd -r -d /var/lib/asterisk -g asterisk asterisk
+usermod -aG audio,dialout asterisk
+
+chown -R asterisk.asterisk /etc/asterisk
+chown -R asterisk.asterisk /var/{lib,log,spool}/asterisk
+chown -R asterisk.asterisk /usr/lib/asterisk
+
+nano -l /etc/default/asterisk
+# uncomment
+	AST_USER="asterisk"
+	AST_GROUP="asterisk"
+
+nano -l /etc/asterisk/asterisk.conf
+# uncomment
+	runuser = asterisk
+	rungroup = asterisk
+
+systemctl restart asterisk
+systemctl enable asterisk
+
+# test
+asterisk -rvv
+exit
+
+4. Install FreePBX 16
+
+exit
+sudo apt install mariadb-server -y
+sudo apt install apache2 -y
+
+sudo cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf_orig
+sudo sed -i 's/^\(User\|Group\).*/\1 asterisk/' /etc/apache2/apache2.conf
+sudo sed -i 's/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
+
+sudo rm -f /var/www/html/index.html
+sudo unlink /etc/apache2/sites-enabled/000-default.conf
+
+sudo apt install -y lsb-release ca-certificates apt-transport-https software-properties-common gnupg2
+echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/sury-php.list
+wget -qO - https://packages.sury.org/php/apt.gpg | sudo apt-key add -
+sudo apt remove php* -y
+sudo apt install -y php7.4 php7.4-{mysql,cli,common,imap,ldap,xml,fpm,curl,mbstring,zip,gd,gettext,xml,json,snmp}
+sudo apt install libapache2-mod-php7.4 -y
+
+sudo sed -i 's/\(^upload_max_filesize = \).*/\120M/' /etc/php/7.4/apache2/php.ini
+sudo sed -i 's/\(^upload_max_filesize = \).*/\120M/' /etc/php/7.4/cli/php.ini
+sudo sed -i 's/\(^memory_limit = \).*/\1256M/' /etc/php/7.4/apache2/php.ini
+
+cd ~/
+wget http://mirror.freepbx.org/modules/packages/freepbx/7.4/freepbx-16.0-latest.tgz
+sudo tar xfz freepbx-16.0-latest.tgz
+sudo rm -f freepbx-16.0-latest.tgz
+cd freepbx
+
+sudo systemctl stop asterisk
+sudo ./start_asterisk start
+
+sudo apt install -y nodejs npm
+sudo ./install -n
+
+sudo fwconsole ma disablerepo commercial
+sudo fwconsole ma installall
+sudo fwconsole ma delete firewall
+sudo fwconsole reload
+sudo fwconsole restart
+
+
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+
+Open Google chrome: http://ip_your_server/
+
+# if error when apply config, please run
+sudo fwconsole reload --verbose
+
+
+
+
+
